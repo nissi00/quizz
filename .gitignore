@@ -1,0 +1,5 @@
+# Local Supabase credentials
+config.js
+
+# Docker/PostgreSQL data if a bind mount is used locally
+db/local/data/

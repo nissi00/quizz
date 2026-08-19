@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ts-quiz-postgres
+    environment:
+      POSTGRES_DB: ts_quiz
+      POSTGRES_USER: ts_quiz
+      POSTGRES_PASSWORD: change-this-password
+    ports:
+      - "5432:5432"
+    volumes:
+      - ts_quiz_data:/var/lib/postgresql/data
+      - ../migrations:/docker-entrypoint-initdb.d:ro
+volumes:
+  ts_quiz_data:

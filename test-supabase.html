@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Test Supabase · TS Formation</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main class="container">
+    <div class="login">
+      <p class="eyebrow">Diagnostic</p>
+      <h1>Connexion Supabase</h1>
+      <div class="card">
+        <p id="status" class="muted">Test de connexion en cours…</p>
+        <p class="muted">Ce test ne crée ni ne modifie de table.</p>
+        <button class="button secondary" onclick="location.reload()">Relancer le test</button>
+      </div>
+    </div>
+  </main>
+  <script type="module">
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+    const status = document.querySelector('#status');
+    try {
+      const response = await fetch(`${SUPABASE_URL}/auth/v1/settings`, {
+        headers: { apikey: SUPABASE_ANON_KEY }
+      });
+      if (!response.ok) throw new Error(`Réponse HTTP ${response.status}`);
+      await response.json();
+      status.innerHTML = '<strong style="color:#087450">✓ Connexion Supabase réussie.</strong><br>URL et clé publique valides. Vous pouvez maintenant exécuter les migrations SQL.';
+    } catch (error) {
+      status.innerHTML = `<strong style="color:#b8473d">✕ Connexion impossible.</strong><br>${error.message}`;
+    }
+  </script>
+</body>
+</html>
