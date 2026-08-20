@@ -2,7 +2,10 @@ import {getSession,signIn,signOut,getCatalog,getInstructorProfile,createLiveSess
 const app=document.querySelector('#app');let catalog=[],live=[];
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const flat=()=>catalog.flatMap(t=>(t.chapters||[]).map(c=>({theme:t,chapter:c,quiz:Array.isArray(c.quizzes)?c.quizzes[0]:c.quizzes})));
-const urlFor=code=>`${location.origin}${location.pathname.replace(/[^/]*$/,'')}learner.html?session=${encodeURIComponent(code)}`;
+// Les QR codes doivent toujours utiliser le domaine public stable, jamais
+// l'URL temporaire et potentiellement protégée d'un déploiement Vercel.
+const learnerOrigin=location.hostname==='localhost'?location.origin:'https://quizz-tau-ruddy.vercel.app';
+const urlFor=code=>`${learnerOrigin}/learner.html?session=${encodeURIComponent(code)}`;
 const code=()=>crypto.getRandomValues(new Uint32Array(2)).reduce((s,n)=>s+n.toString(36),'THE').slice(0,8).toUpperCase();
 const qr=c=>`https://api.qrserver.com/v1/create-qr-code/?size=220&data=${encodeURIComponent(urlFor(c))}`;
 function shell(body){app.innerHTML=`<header class="topbar"><a class="brand" href="./instructor.html"><span class="logo">TS</span><span>Formation <small>· Instructeur</small></span></a><a class="link-button" href="./learner.html">🎓 Apprenant</a></header><main class="container animate-in">${body}</main>`}
