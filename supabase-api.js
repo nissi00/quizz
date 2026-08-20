@@ -75,12 +75,49 @@ export async function createQuestion(quizId, question) {
   return questionId;
 }
 
+export async function createTheme(name) {
+  const normalized = name.trim();
+  if (!normalized) throw new Error('Saisissez le nom du thème.');
+  const existing = await request(`themes?name=eq.${encodeURIComponent(normalized)}&select=id,name`);
+  if (existing?.[0]) return existing[0];
+  const latest = await request('themes?select=position&order=position.desc&limit=1');
+  const created = await request('themes', {
+    method: 'POST', headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ name: normalized, position: (latest?.[0]?.position ?? -1) + 1 })
+  });
+  if (!created?.[0]) throw new Error('Le thème n’a pas pu être créé.');
+  return created[0];
+}
+
+export async function createChapterAndQuiz(themeId, title) {
+  const normalized = title.trim();
+  if (!themeId || !normalized) throw new Error('Saisissez le thème et le chapitre.');
+  const latest = await request(`chapters?theme_id=eq.${encodeURIComponent(themeId)}&select=position&order=position.desc&limit=1`);
+  const chapters = await request('chapters', {
+    method: 'POST', headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ theme_id: themeId, title: normalized, position: (latest?.[0]?.position ?? -1) + 1 })
+  });
+  const chapter = chapters?.[0];
+  if (!chapter) throw new Error('Le chapitre n’a pas pu être créé.');
+  const quizzes = await request('quizzes', {
+    method: 'POST', headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ chapter_id: chapter.id, title: `Quiz · ${normalized}`, default_duration_seconds: 30 })
+  });
+  if (!quizzes?.[0]) throw new Error('Le quiz associé au chapitre n’a pas pu être créé.');
+  return { chapter, quiz: quizzes[0] };
+}
+
 export async function signInAnonymously() {
   const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
     method: 'POST', headers: headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({})
   });
   const payload = await response.json();
-  if (!response.ok) throw new Error(payload.message || payload.error_description || 'Connexion anonyme indisponible.');
+  if (!response.ok) {
+    if (payload.code === 'anonymous_provider_disabled' || /anonymous sign-ins are disabled/i.test(payload.msg || payload.message || '')) {
+      throw new Error('Authentification anonyme désactivée dans Supabase. Activez-la dans Authentication → Providers → Anonymous Sign-Ins.');
+    }
+    throw new Error(payload.message || payload.error_description || payload.msg || 'Connexion anonyme indisponible.');
+  }
   localStorage.setItem(sessionKey, JSON.stringify(payload));
   return payload.user;
 }
