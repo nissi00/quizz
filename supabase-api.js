@@ -101,7 +101,7 @@ export async function getInstructorProfile() {
 }
 
 export async function getCatalog() {
-  return request('themes?select=id,name,chapters(id,title,position,quizzes(id,title,questions(id,body,duration_seconds,position,answer_options(id,label,body,is_correct))) )&order=position.asc');
+  return request('themes?select=id,name,chapters(id,title,position,quizzes(id,title,questions(id,body,duration_seconds,position,answer_options(id,label,body,is_correct))))&order=position.asc');
 }
 
 export async function createLiveSession(payload) {
