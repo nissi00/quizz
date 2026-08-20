@@ -28,7 +28,7 @@ const initialRender=render;render=()=>{initialRender();document.querySelectorAll
 function startSession(key){const s=sessions.find(x=>x.code===key);s.status='live';s.endsAt=Date.now()+(data.chapters.find(c=>c.id===s.chapterId)?.quiz.questions[s.questionIndex]?.seconds||30)*1000;save();render();showPanel('scheduled')}
 Object.assign(window,{startSession});render();
 
-// Pilotage connecté à Supabase : mêmes données pour l'instructeur et les apprenants.
+/* Pilotage connecté à Supabase en préparation : même données pour l'instructeur et les apprenants.
 let remoteSessions=[];
 const legacyRender=render;
 render=async()=>{legacyRender();const sidebar=document.querySelector('.sidebar');if(!sidebar)return;sidebar.insertAdjacentHTML('beforeend','<button class="nav-button" onclick="openPilot()">🎮 Piloter le quiz</button>');document.querySelector('.layout section').insertAdjacentHTML('beforeend','<div id="pilot" class="panel"><p class="eyebrow">Contrôle direct</p><h1>Piloter le quiz</h1><div id="pilotContent" class="card">Chargement…</div></div>')};
@@ -43,8 +43,4 @@ Object.assign(window,{newSession,openPilot,pilotStart,pilotPause,pilotNext,pilot
 
 selectTheme=(theme,button)=>{document.querySelectorAll('.theme-tags .tab').forEach(x=>x.classList.remove('active'));button?.classList.add('active');const box=document.querySelector('#accordions');if(!box)return;box.innerHTML=data.chapters.filter(c=>c.theme===theme).map(c=>`<details class="chapter-accordion"><summary><span class="chapter-icon">📚</span><span><b>${esc(c.title)}</b><small>${c.quiz.questions.length} question(s)</small></span><span class="chevron">⌄</span></summary><div class="chapter-content">${c.quiz.questions.map((q,i)=>`<article class="question-row"><span class="question-number">${i+1}</span><div style="flex:1"><b>${esc(q.body)}</b><div class="answer-preview">${q.answers.map((a,j)=>`<button class="answer-chip" onclick="editAnswer('${c.id}','${q.id}',${j})">${'ABCD'[j]} · ${esc(a)} <span title="Modifier">✏️</span></button>`).join('')}</div></div></article>`).join('')}</div></details>`).join('')};
 function editAnswer(chapterId,questionId,index){const q=data.chapters.find(c=>c.id===chapterId)?.quiz.questions.find(q=>q.id===questionId),value=prompt(`Modifier la proposition ${'ABCD'[index]}`,q.answers[index]);if(value?.trim()){q.answers[index]=value.trim();save();selectTheme(data.chapters.find(c=>c.id===chapterId).theme)}}
-Object.assign(window,{selectTheme,editAnswer});
-performance=async()=>{const key=document.querySelector('#perf').value,box=document.querySelector('#perfRows');if(!key)return;try{const rows=await getLiveSessions(),s=rows.find(x=>x.code===key);if(!s)return;const people=s.session_participants||[],answers=s.live_answers||[];box.innerHTML=`<table><thead><tr><th>Apprenant</th><th>Statut</th><th>Réponses envoyées</th></tr></thead><tbody>${people.map(p=>`<tr><td>${esc(p.app_users?.first_name)} ${esc(p.app_users?.last_name)}</td><td>${esc(p.status)}</td><td>${answers.filter(a=>a.participant_id===p.id).length}</td></tr>`).join('')}</tbody></table>`}catch(e){box.textContent=e.message}};
-const performanceRender=render;
-render=async()=>{await performanceRender();const select=document.querySelector('#perf');if(select)select.onchange=performance};
-render();
+*/
