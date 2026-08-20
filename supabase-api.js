@@ -77,3 +77,42 @@ export async function createQuestion(chapterPosition, question) {
   });
   return questionId;
 }
+
+export async function signInAnonymously() {
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+    method: 'POST', headers: headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({})
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.message || payload.error_description || 'Connexion anonyme indisponible.');
+  localStorage.setItem(sessionKey, JSON.stringify(payload));
+  return payload.user;
+}
+
+export async function rpc(name, params = {}) {
+  return request(`rpc/${name}`, { method: 'POST', body: JSON.stringify(params) });
+}
+
+export async function getInstructorProfile() {
+  const session = getSession();
+  if (!session?.user?.id) throw new Error('Connexion instructeur requise.');
+  const result = await request(`app_users?select=id&auth_user_id=eq.${encodeURIComponent(session.user.id)}`);
+  if (!result?.[0]) throw new Error('Profil instructeur introuvable dans app_users.');
+  return result[0];
+}
+
+export async function getCatalog() {
+  return request('themes?select=id,name,chapters(id,title,position,quizzes(id,title,questions(id,body,duration_seconds,position,answer_options(id,label,body,is_correct))) )&order=position.asc');
+}
+
+export async function createLiveSession(payload) {
+  const result = await request('live_sessions', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(payload) });
+  return result?.[0];
+}
+
+export async function getLiveSessions() {
+  return request('live_sessions?select=id,code,quiz_id,status,current_question_id,question_started_at,question_ends_at,capacity,created_at,session_participants(id,status,user_id,app_users(first_name,last_name)),live_answers(id,question_id,participant_id,option_id)&order=created_at.desc');
+}
+
+export async function updateLiveSession(id, payload) {
+  await request(`live_sessions?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+}
