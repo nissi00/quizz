@@ -170,7 +170,20 @@ export async function createLiveSession(payload) {
 }
 
 export async function getLiveSessions() {
-  return request('live_sessions?select=id,code,quiz_id,status,current_question_id,question_started_at,question_ends_at,capacity,created_at,session_participants(id,status,user_id,app_users(first_name,last_name)),live_answers(id,question_id,participant_id,option_id)&order=created_at.desc');
+  const [sessions, participants, answers, users] = await Promise.all([
+    request('live_sessions?select=id,code,quiz_id,status,current_question_id,question_started_at,question_ends_at,capacity,created_at&order=created_at.desc'),
+    request('session_participants?select=id,session_id,status,user_id'),
+    request('live_answers?select=id,session_id,question_id,participant_id,option_id'),
+    request('app_users?select=id,first_name,last_name')
+  ]);
+  const usersById = new Map((users || []).map(user => [user.id, user]));
+  return (sessions || []).map(session => ({
+    ...session,
+    session_participants: (participants || [])
+      .filter(participant => participant.session_id === session.id)
+      .map(participant => ({ ...participant, app_users: usersById.get(participant.user_id) || null })),
+    live_answers: (answers || []).filter(answer => answer.session_id === session.id)
+  }));
 }
 
 export async function updateLiveSession(id, payload) {
