@@ -41,23 +41,20 @@ async function request(path, options = {}) {
   return payload;
 }
 
-export async function createQuestion(chapterPosition, question) {
+export async function createQuestion(quizId, question) {
   if (!getSession()) throw new Error('Connectez-vous en superadmin avant de créer une question.');
-  const chapters = await request('chapters?select=id,title,quizzes(id,title)&order=position.asc');
-  const chapter = chapters[chapterPosition];
-  // La relation est un objet (un quiz par chapitre), mais PostgREST peut
-  // la retourner sous forme de liste selon la configuration de la relation.
-  const quiz = Array.isArray(chapter?.quizzes) ? chapter.quizzes[0] : chapter?.quizzes;
-  if (!quiz) throw new Error('Quiz introuvable dans Supabase. Vérifiez la migration des données de démonstration.');
+  if (!quizId) throw new Error('Choisissez un chapitre disposant d’un quiz.');
+  const latest = await request(`questions?quiz_id=eq.${encodeURIComponent(quizId)}&select=position&order=position.desc&limit=1`);
+  const position = Number.isInteger(question.position) ? question.position : ((latest?.[0]?.position ?? -1) + 1);
 
   const created = await request('questions', {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
     body: JSON.stringify({
-      quiz_id: quiz.id,
+      quiz_id: quizId,
       body: question.body,
       duration_seconds: question.seconds,
-      position: question.position,
+      position,
       explanation: question.explanation,
       difficulty: 1,
       subtopic: 'Général'
