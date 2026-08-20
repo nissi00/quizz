@@ -75,6 +75,32 @@ export async function createQuestion(quizId, question) {
   return questionId;
 }
 
+export async function updateQuestion(id, payload) {
+  if (!getSession()) throw new Error('Connectez-vous en superadmin avant de modifier une question.');
+  await request(`questions?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateAnswerOption(id, payload) {
+  if (!getSession()) throw new Error('Connectez-vous en superadmin avant de modifier une proposition.');
+  await request(`answer_options?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function deleteThemeById(id) {
+  if (!getSession()) throw new Error('Connectez-vous en superadmin avant de supprimer un thème.');
+  await request(`themes?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export async function deleteChapterById(id) {
+  if (!getSession()) throw new Error('Connectez-vous en superadmin avant de supprimer un chapitre.');
+  await request(`chapters?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
 export async function createTheme(name) {
   const normalized = name.trim();
   if (!normalized) throw new Error('Saisissez le nom du thème.');
