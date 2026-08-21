@@ -50,7 +50,9 @@ async function refresh() {
       clearInterval(poller);
       if (viewKey !== 'finished') {
         viewKey = 'finished';
-        screen('<div class="login center"><div class="card"><h1>Quiz terminé 🎉</h1><p>Merci pour votre participation.</p></div></div>');
+        const score = state.final_score;
+        const scoreText = score ? `<p class="score-final">Votre score : <b>${Number(score.percent || 0)}%</b><span>${Number(score.correct_answers || 0)} / ${Number(score.question_count || 0)} bonne(s) réponse(s)</span></p>` : '';
+        screen(`<div class="login center"><div class="card"><h1>Quiz terminé 🎉</h1>${scoreText}<p>Merci pour votre participation.</p></div></div>`);
       }
       return;
     }
@@ -72,7 +74,10 @@ function question(state) {
   if (viewKey === key) return;
   viewKey = key;
   submitted = false;
-  screen(`<div class="login"><input type="hidden" id="questionId" value="${q.id}"><div class="question-head"><h1>Question ${q.position + 1}</h1><div id="timer" class="timer"></div></div><div class="card"><p class="question">${esc(q.body)}</p><div class="answers">${q.options.map(option => `<label class="answer"><input type="radio" name="answer" value="${option.id}"><span class="answer-letter">${option.label}</span>${esc(option.body)}</label>`).join('')}</div><div id="feedback"></div><p><button id="validate" class="button" onclick="answer()">Valider ma réponse</button></p></div></div>`);
+  const multiple = Boolean(q.multiple_answers);
+  const answerType = multiple ? 'checkbox' : 'radio';
+  const instruction = multiple ? 'Plusieurs réponses sont attendues : cochez toutes les propositions pertinentes.' : 'Une seule réponse est attendue.';
+  screen(`<div class="login"><input type="hidden" id="questionId" value="${q.id}"><div class="question-head"><h1>Question ${q.position + 1}</h1><div id="timer" class="timer"></div></div><div class="card"><p class="question">${esc(q.body)}</p><p class="answer-instruction">${instruction}</p><div class="answers">${q.options.map(option => `<label class="answer"><input type="${answerType}" name="answer" value="${option.id}"><span class="answer-letter">${option.label}</span>${esc(option.body)}</label>`).join('')}</div><div id="feedback"></div><p><button id="validate" class="button" onclick="answer()">Valider ma réponse</button></p></div></div>`);
   const tick = () => {
     if (viewKey !== key) return clearInterval(clock);
     const left = Math.max(0, Math.ceil((new Date(state.question_ends_at) - Date.now()) / 1000));
@@ -81,7 +86,7 @@ function question(state) {
     if (left <= 0) {
       clearInterval(clock);
       lock('Le temps est écoulé.');
-      poll(state);
+      refresh();
     }
   };
   const clock = setInterval(tick, 400);
@@ -93,19 +98,22 @@ function poll(state) {
   const results = state.poll_results || [];
   const total = results.reduce((sum, result) => sum + Number(result.response_count || 0), 0);
   const signature = results.map(result => `${result.label}:${result.response_count}`).join(',');
-  const key = `poll:${q.id}:${signature}`;
+  const outcome = state.question_expired ? (state.answer_result ? 'bravo' : 'dommage') : 'pending';
+  const key = `poll:${q.id}:${signature}:${outcome}`;
   if (viewKey === key) return;
   viewKey = key;
   const byLabel = Object.fromEntries(results.map(result => [result.label, Number(result.response_count || 0)]));
-  screen(`<div class="login"><p class="eyebrow">Sondage de la question ${q.position + 1}</p><div class="question-head"><h1>Résultats en direct 📊</h1><span class="tag">${total} réponse${total > 1 ? 's' : ''}</span></div><div class="card poll-card"><p class="question">${esc(q.body)}</p><p class="muted">Répartition anonyme des réponses. Attendez le lancement de la question suivante.</p><div class="poll-results">${q.options.map(option => { const count = byLabel[option.label] || 0; const percent = total ? Math.round(count * 100 / total) : 0; return `<div class="poll-row"><div class="poll-label"><span class="answer-letter">${option.label}</span><span>${esc(option.body)}</span><b>${percent}%</b></div><div class="poll-bar"><span style="width:${percent}%"></span></div><small>${count} vote${count > 1 ? 's' : ''}</small></div>`; }).join('')}</div></div></div>`);
+  const resultMessage = state.question_expired ? `<div class="feedback ${state.answer_result ? 'success' : 'bad'}"><b>${state.answer_result ? 'Bravo !' : 'Dommage.'}</b> ${state.answer_result ? 'Vous avez trouvé.' : 'Vous n’avez pas trouvé.'}</div>` : '';
+  const countLabel = q.multiple_answers ? 'sélection' : 'réponse';
+  screen(`<div class="login"><p class="eyebrow">Sondage de la question ${q.position + 1}</p><div class="question-head"><h1>Résultats en direct 📊</h1><span class="tag">${total} ${countLabel}${total > 1 ? 's' : ''}</span></div><div class="card poll-card"><p class="question">${esc(q.body)}</p><p class="muted">Répartition anonyme des réponses. Attendez le lancement de la question suivante.</p><div class="poll-results">${q.options.map(option => { const count = byLabel[option.label] || 0; const percent = total ? Math.round(count * 100 / total) : 0; return `<div class="poll-row"><div class="poll-label"><span class="answer-letter">${option.label}</span><span>${esc(option.body)}</span><b>${percent}%</b></div><div class="poll-bar"><span style="width:${percent}%"></span></div><small>${count} ${countLabel}${count > 1 ? 's' : ''}</small></div>`; }).join('')}</div>${resultMessage}</div></div>`);
 }
 
 async function answer() {
   if (submitted) return;
-  const option = document.querySelector('input[name=answer]:checked');
-  if (!option) return alert('Choisissez une proposition.');
+  const options = [...document.querySelectorAll('input[name=answer]:checked')];
+  if (!options.length) return alert('Choisissez au moins une proposition.');
   try {
-    await rpc('submit_live_answer', { p_code: code, p_option_id: option.value });
+    await rpc('submit_live_answers', { p_code: code, p_option_ids: options.map(option => option.value) });
     submitted = true;
     lock('Réponse enregistrée. Attendez le sondage ou la question suivante.');
   } catch (error) {

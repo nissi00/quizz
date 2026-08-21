@@ -62,6 +62,8 @@ export async function createQuestion(quizId, question) {
   });
   const questionId = created?.[0]?.id;
   if (!questionId) throw new Error('La question n’a pas été créée.');
+  const correctAnswers = Array.isArray(question.correct) ? question.correct : [question.correct];
+  if (!correctAnswers.length) throw new Error('Choisissez au moins une bonne réponse.');
   await request('answer_options', {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
@@ -69,7 +71,7 @@ export async function createQuestion(quizId, question) {
       question_id: questionId,
       label: 'ABCD'[index],
       body,
-      is_correct: index === question.correct
+      is_correct: correctAnswers.includes(index)
     })))
   });
   return questionId;
@@ -170,10 +172,11 @@ export async function createLiveSession(payload) {
 }
 
 export async function getLiveSessions() {
-  const [sessions, participants, answers, users] = await Promise.all([
+  const [sessions, participants, answers, submissions, users] = await Promise.all([
     request('live_sessions?select=id,code,quiz_id,status,current_question_id,question_started_at,question_ends_at,capacity,created_at&order=created_at.desc'),
     request('session_participants?select=id,session_id,status,user_id'),
     request('live_answers?select=id,session_id,question_id,participant_id,option_id'),
+    request('live_answer_submissions?select=id,session_id,question_id,participant_id,is_correct'),
     request('app_users?select=id,first_name,last_name')
   ]);
   const usersById = new Map((users || []).map(user => [user.id, user]));
@@ -182,7 +185,8 @@ export async function getLiveSessions() {
     session_participants: (participants || [])
       .filter(participant => participant.session_id === session.id)
       .map(participant => ({ ...participant, app_users: usersById.get(participant.user_id) || null })),
-    live_answers: (answers || []).filter(answer => answer.session_id === session.id)
+    live_answers: (answers || []).filter(answer => answer.session_id === session.id),
+    live_answer_submissions: (submissions || []).filter(submission => submission.session_id === session.id)
   }));
 }
 
